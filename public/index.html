@@ -208,6 +208,23 @@
     .reservation-badge.my { background-color: var(--my-bg); color: var(--my-fg); border: 1px solid var(--my-border); }
     .reservation-badge.other { background-color: var(--other-bg); color: var(--other-fg); border: 1px solid var(--other-border); }
 
+    .event-label {
+      display: block;
+      font-size: 10px;
+      font-weight: bold;
+      color: #6A1B9A;
+      background: #F3E5F5;
+      border: 1px solid #CE93D8;
+      border-radius: 4px;
+      padding: 1px 3px;
+      margin: 1px 0;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.4;
+    }
+
     /* ── 내 예약 현황 ─────────────── */
     .my-reservations h3 { font-size: 19px; margin-bottom: 12px; color: #333; }
     .reservation-item {
@@ -758,6 +775,22 @@ async function handleLogin() {
 window.handleLogin = handleLogin;
 
 // ─── 월별 예약 실시간 구독 ──────────────────────────────────
+let monthEvents = {};   // { "YYYY-MM-DD": ["부활절", ...] }
+
+async function loadMonthEvents(start, end) {
+  monthEvents = {};
+  try {
+    const snap = await getDocs(query(collection(db, 'events'),
+      where('date', '>=', start), where('date', '<=', end)));
+    snap.forEach(d => {
+      const e = d.data();
+      if (!e.date || !e.name) return;
+      if (!monthEvents[e.date]) monthEvents[e.date] = [];
+      monthEvents[e.date].push(e.name);
+    });
+  } catch { monthEvents = {}; }
+}
+
 function subscribeMonth() {
   if (unsubscribeMonth) { unsubscribeMonth(); unsubscribeMonth = null; }
   $('liveDot').classList.remove('on');
@@ -768,15 +801,17 @@ function subscribeMonth() {
     where('date', '>=', start), where('date', '<=', end));
 
   showLoading(true);
-  unsubscribeMonth = onSnapshot(q, snap => {
-    monthlyReservations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderCalendar();
-    renderMyReservations();
-    $('liveDot').classList.add('on');
-    showLoading(false);
-  }, err => {
-    showLoading(false);
-    showAlert('데이터 로드 실패: ' + err.message);
+  loadMonthEvents(start, end).finally(() => {
+    unsubscribeMonth = onSnapshot(q, snap => {
+      monthlyReservations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderCalendar();
+      renderMyReservations();
+      $('liveDot').classList.add('on');
+      showLoading(false);
+    }, err => {
+      showLoading(false);
+      showAlert('데이터 로드 실패: ' + err.message);
+    });
   });
 }
 
@@ -825,6 +860,12 @@ function renderCalendar() {
       } else {
         const dateStr = `${currentYear}-${pad(currentMonth)}-${pad(date)}`;
         let html = `<div class="date-number">${date}</div>`;
+
+        if (monthEvents[dateStr]) {
+          monthEvents[dateStr].forEach(name => {
+            html += `<span class="event-label">${name}</span>`;
+          });
+        }
 
         if (byDate[dateStr]) {
           rooms.forEach(room => {
