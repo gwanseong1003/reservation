@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#37474F">
+  <title>관리자 — 높은뜻안성교회 장소 예약</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --dark: #37474F;
+      --green: #4CAF50;
+      --green-bg: #e8f5e9;
+      --red: #f44336;
+      --amber: #FF9800;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+      background: #eceff1;
+    }
+    .container {
+      max-width: 600px; margin: 0 auto;
+      background: white;
+      min-height: 100vh; min-height: 100dvh;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    .header {
+      background: var(--dark); color: white;
+      padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+      text-align: center; font-size: 17px; font-weight: bold;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header .badge {
+      display: inline-block; background: var(--amber);
+      color: #333; font-size: 11px; padding: 2px 8px;
+      border-radius: 10px; margin-left: 8px; vertical-align: middle;
+    }
+    .header .logout {
+      position: absolute; right: 12px; top: 50%;
+      transform: translateY(-30%);
+      background: rgba(255,255,255,0.15); color: white;
+      border: none; border-radius: 6px;
+      padding: 6px 10px; font-size: 13px;
+    }
+
+    .screen { display: none; padding: 16px; }
+    .screen.active { display: block; }
+
+    /* 탭 */
+    .tabs {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 6px; margin-bottom: 18px;
+      position: sticky; top: calc(48px + env(safe-area-inset-top, 0px));
+      background: white; z-index: 50; padding: 8px 0;
+    }
+    .tab {
+      padding: 12px 4px; text-align: center;
+      font-size: 15px; font-weight: bold;
+      border: 2px solid #ddd; border-radius: 8px;
+      cursor: pointer; color: #666;
+      touch-action: manipulation;
+    }
+    .tab.active { border-color: var(--dark); background: var(--dark); color: white; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* 폼 */
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 15px; font-weight: bold; margin-bottom: 6px; color: #333; }
+    input[type="text"], input[type="password"], input[type="number"],
+    input[type="date"], input[type="time"], select {
+      width: 100%; padding: 13px; font-size: 16px;
+      border: 2px solid #ddd; border-radius: 8px; outline: none;
+      background: white; appearance: none; -webkit-appearance: none;
+    }
+    input:focus, select:focus { border-color: var(--dark); }
+
+    .btn {
+      width: 100%; padding: 15px; font-size: 17px; font-weight: bold;
+      border: none; border-radius: 8px; cursor: pointer;
+      margin-top: 8px; touch-action: manipulation;
+      transition: transform 0.08s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; }
+    .btn-dark { background: var(--dark); color: white; }
+    .btn-green { background: var(--green); color: white; }
+    .btn-red { background: var(--red); color: white; }
+    .btn-sm {
+      width: auto; padding: 9px 14px; font-size: 14px;
+      margin: 0; border-radius: 6px;
+    }
+
+    .login-box { margin-top: 48px; }
+    .login-hint { font-size: 13.5px; color: #888; margin-top: 14px; text-align: center; line-height: 1.7; }
+
+    /* 카드 리스트 */
+    .item-card {
+      border: 2px solid #ddd; border-radius: 10px;
+      padding: 14px; margin-bottom: 12px;
+    }
+    .item-card.inactive { opacity: 0.55; background: #fafafa; }
+    .item-head {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 6px;
+    }
+    .item-title { font-size: 17px; font-weight: bold; color: #333; }
+    .item-title .off-tag {
+      font-size: 11px; color: white; background: #999;
+      padding: 2px 7px; border-radius: 8px;
+      margin-left: 6px; vertical-align: middle;
+    }
+    .item-meta { font-size: 13.5px; color: #777; line-height: 1.7; }
+    .item-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .item-actions .btn-sm { flex: 1; }
+
+    /* 편집 폼 (인라인) */
+    .edit-form {
+      background: #f5f7f8; border-radius: 8px;
+      padding: 14px; margin-top: 10px;
+    }
+    .edit-form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .edit-form .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 2px;
+    }
+    .toggle-row span { font-size: 15px; font-weight: bold; color: #333; }
+    .switch { position: relative; width: 52px; height: 30px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: #ccc; border-radius: 30px; transition: 0.2s;
+    }
+    .slider:before {
+      content: ""; position: absolute;
+      width: 24px; height: 24px; left: 3px; top: 3px;
+      background: white; border-radius: 50%; transition: 0.2s;
+    }
+    .switch input:checked + .slider { background: var(--green); }
+    .switch input:checked + .slider:before { transform: translateX(22px); }
+
+    .section-title {
+      font-size: 17px; font-weight: bold; color: #333;
+      margin: 22px 0 12px; padding-bottom: 6px;
+      border-bottom: 2px solid #eee;
+    }
+    .section-title:first-child { margin-top: 0; }
+
+    /* 공휴일 */
+    .holiday-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 4px; border-bottom: 1px solid #eee;
+      font-size: 14.5px;
+    }
+    .holiday-row .h-date { font-weight: bold; color: #333; min-width: 100px; }
+    .holiday-row .h-name { flex: 1; color: #666; }
+    .holiday-add { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 8px; margin-top: 12px; }
+    .holiday-add .btn-sm { padding: 12px 14px; }
+
+    /* 예약 관리 */
+    .resv-entry {
+      border: 1px solid #ddd; border-radius: 8px;
+      padding: 12px; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .resv-entry .info { flex: 1; }
+    .resv-room { font-size: 15px; font-weight: bold; color: #2e7d32; }
+    .resv-time { font-size: 15px; font-weight: bold; color: #333; margin: 2px 0; }
+    .resv-detail { font-size: 13.5px; color: #777; line-height: 1.6; }
+
+    /* 관리자 달력 */
+    .calendar-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px; padding: 10px 12px;
+      background: #f5f7f8; border-radius: 10px;
+    }
+    .calendar-nav button {
+      background: var(--dark); color: white; border: none;
+      padding: 11px 17px; font-size: 16px; border-radius: 8px;
+      font-weight: bold; touch-action: manipulation;
+    }
+    .calendar-nav .date-display { font-size: 19px; font-weight: bold; color: #333; }
+    .cal-hint {
+      font-size: 12.5px; color: #777; background: #fafafa;
+      border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; line-height: 1.7;
+    }
+    .calendar-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 18px; }
+    .calendar-table th {
+      background: #B0BEC5; color: #333; padding: 9px 2px;
+      font-size: 13px; font-weight: bold; border: 1px solid #ddd;
+    }
+    .calendar-table th:first-child { color: var(--red); }
+    .calendar-table th:last-child { color: #2196F3; }
+    .calendar-table td {
+      border: 1px solid #ddd; padding: 4px 2px;
+      vertical-align: top; height: 80px;
+      cursor: pointer; background: white;
+    }
+    .calendar-table td:active { background: #f0f0f0; }
+    .calendar-table td.other-month { background: #f9f9f9; color: #ccc; }
+    .calendar-table td.today .date-number {
+      background: var(--dark); color: white; border-radius: 50%;
+      width: 21px; height: 21px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .calendar-table td.sunday .date-number { color: var(--red); }
+    .calendar-table td.saturday .date-number { color: #2196F3; }
+    .date-number { font-size: 13.5px; font-weight: bold; margin-bottom: 3px; }
+    .reservation-badge {
+      font-size: 10px; padding: 2px 3px; margin: 1px 0;
+      border-radius: 4px; display: block; text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;
+      line-height: 1.4;
+    }
+
+    .empty-message { text-align: center; color: #999; padding: 24px 12px; font-size: 14.5px; }
+    .hidden { display: none !important; }
+
+    /* 로딩/모달 */
+    .loading {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 9999;
+      justify-content: center; align-items: center;
+    }
+    .loading.show { display: flex; }
+    .loading-spinner { background: white; padding: 24px 32px; border-radius: 12px; text-align: center; }
+    .spinner {
+      border: 4px solid #f3f3f3; border-top: 4px solid var(--dark);
+      border-radius: 50%; width: 42px; height: 42px;
+      animation: spin 0.9s linear infinite; margin: 0 auto 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 10000;
+      justify-content: center; align-items: center; padding: 20px;
+    }
+    .modal.show { display: flex; }
+    .modal-content {
+      background: white; padding: 24px 20px; border-radius: 14px;
+      max-width: 380px; width: 100%;
+    }
+    .modal-message { font-size: 16px; margin-bottom: 20px; color: #333; text-align: center; line-height: 1.6; white-space: pre-line; }
+    .modal-buttons { display: flex; gap: 10px; }
+    .modal-buttons button {
+      flex: 1; padding: 13px; font-size: 16px; font-weight: bold;
+      border: none; border-radius: 8px; cursor: pointer;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      장소 예약 관리자<span class="badge">ADMIN</span>
+      <button class="logout hidden" id="logoutBtn">로그아웃</button>
+    </div>
+
+    <!-- 관리자 로그인 -->
+    <div id="loginScreen" class="screen active">
+      <div class="login-box">
+        <div class="form-group">
+          <label for="adminId">관리자 아이디</label>
+          <input type="text" id="adminId" placeholder="gwanseong" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="adminPw">비밀번호</label>
+          <input type="password" id="adminPw" autocomplete="current-password">
+        </div>
+        <button class="btn btn-dark" id="loginBtn">관리자 로그인</button>
+        <div class="login-hint">Firebase Authentication에 등록된<br>관리자 계정으로만 접근할 수 있습니다.</div>
+      </div>
+    </div>
+
+    <!-- 대시보드 -->
+    <div id="dashScreen" class="screen">
+      <div class="tabs">
+        <div class="tab active" data-tab="roomsTab">장소 관리</div>
+        <div class="tab" data-tab="settingsTab">운영 설정</div>
+        <div class="tab" data-tab="resvTab">예약 관리</div>
+      </div>
+
+      <!-- 탭 1: 장소 관리 -->
+      <div class="tab-panel active" id="roomsTab">
+        <div class="section-title">새 장소 추가</div>
+        <div class="edit-form">
+          <div class="form-group">
+            <label>장소명</label>
+            <input type="text" id="newName" placeholder="예: 샬롬홀D">
+          </div>
+          <div class="row3">
+            <div class="form-group">
+              <label>동시예약 제한</label>
+              <input type="number" id="newLimit" value="1" min="1" inputmode="numeric">
+            </div>
+            <div class="form-group">
+              <label>정원(명)</label>
+              <input type="number" id="newCapacity" placeholder="40" min="1" inputmode="numeric">
+            </div>
+            <div class="form-group">
+              <label>표시 순서</label>
+              <input type="number" id="newOrder" placeholder="7" min="1" inputmode="numeric">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>장비 (표시용)</label>
+            <input type="text" id="newEquipment" placeholder="예: 빔프로젝터, 음향">
+          </div>
+          <button class="btn btn-green" id="addRoomBtn">장소 추가</button>
+        </div>
+
+        <div class="section-title">등록된 장소</div>
+        <div id="roomsList"></div>
+      </div>
+
+      <!-- 탭 2: 운영 설정 -->
+      <div class="tab-panel" id="settingsTab">
+        <div class="section-title">운영 시간</div>
+        <div class="edit-form">
+          <div class="row2">
+            <div class="form-group">
+              <label>시작 시각</label>
+              <select id="setOpen"></select>
+            </div>
+            <div class="form-group">
+              <label>종료 시각</label>
+              <select id="setClose"></select>
+            </div>
+          </div>
+          <button class="btn btn-dark" id="saveHoursBtn">운영시간 저장</button>
+        </div>
+
+        <div class="section-title">공휴일 (달력에 빨간색 표시)</div>
+        <div id="holidayList"></div>
+        <div class="holiday-add">
+          <input type="date" id="newHolidayDate">
+          <input type="text" id="newHolidayName" placeholder="예: 성탄절">
+          <button class="btn btn-green btn-sm" id="addHolidayBtn">추가</button>
+        </div>
+      </div>
+
+      <!-- 탭 3: 예약 관리 (달력 방식) -->
+      <div class="tab-panel" id="resvTab">
+        <!-- 달력 뷰 -->
+        <div id="resvCalView">
+          <div class="calendar-nav">
+            <button id="admPrevBtn" aria-label="이전 달">◀</button>
+            <div class="date-display"><span id="admYear"></span>년 <span id="admMonth"></span>월</div>
+            <button id="admNextBtn" aria-label="다음 달">▶</button>
+          </div>
+          <div class="cal-hint">
+            1) 날짜(숫자)를 누르면 그 날에 새 예약을 추가합니다.<br>
+            2) 날짜 안의 장소 배지를 누르면 그 날의 예약을 수정·취소할 수 있습니다.
+          </div>
+          <table class="calendar-table">
+            <thead>
+              <tr><th>일</th><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th></tr>
+            </thead>
+            <tbody id="admCalBody"></tbody>
+          </table>
+          <div class="section-title hidden" id="dayListTitle"></div>
+          <div id="dayList" data-date=""></div>
+        </div>
+
+        <!-- 예약 추가/수정 폼 -->
+        <div id="resvFormView" class="hidden">
+          <div class="section-title" id="formTitle">예약 추가</div>
+          <div class="edit-form">
+            <div class="row2">
+              <div class="form-group">
+                <label>예약자 이름</label>
+                <input type="text" id="fName" placeholder="예약자 이름">
+              </div>
+              <div class="form-group">
+                <label>연락처</label>
+                <input type="text" id="fPhone" placeholder="01012345678" inputmode="numeric" maxlength="13">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>장소</label>
+              <select id="fRoom"></select>
+            </div>
+            <div class="row2">
+              <div class="form-group">
+                <label>시작 시간</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="fStartH" style="flex:1;"></select>
+                  <select id="fStartM" style="flex:1;"></select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>종료 시간</label>
+                <div style="display:flex;gap:6px;">
+                  <select id="fEndH" style="flex:1;"></select>
+                  <select id="fEndM" style="flex:1;"></select>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>사용목적</label>
+              <input type="text" id="fPurpose" placeholder="사용목적">
+            </div>
+            <div class="form-group">
+              <label>사용인원 (대략)</label>
+              <input type="number" id="fPeople" min="1" inputmode="numeric" placeholder="인원수">
+            </div>
+            <div class="form-group" id="fRepeatGroup">
+              <label>반복 예약</label>
+              <select id="fRepeat">
+                <option value="없음">없음</option>
+                <option value="매일">매일</option>
+                <option value="매주">매주</option>
+              </select>
+            </div>
+            <div class="form-group hidden" id="fRepeatEndGroup">
+              <label>반복 종료 날짜</label>
+              <input type="date" id="fRepeatEnd">
+            </div>
+            <button class="btn btn-green" id="fSaveBtn">저장</button>
+            <button class="btn btn-dark" id="fBackBtn">돌아가기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="loading-spinner"><div class="spinner"></div><div style="font-weight:bold;">처리중...</div></div>
+  </div>
+
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <div class="modal-message" id="modalMessage"></div>
+      <div class="modal-buttons" id="modalButtons"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, getDoc, getDocs, addDoc,
+      updateDoc, deleteDoc, setDoc, query, where,
+      onSnapshot, writeBatch, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ─── [필수] index_v2.html과 동일한 Firebase 설정 붙여넣기 ───
+    const firebaseConfig = {
+      apiKey: "AIzaSyAgYFZSo3KI9ycQH6c_es3RDvKYWMYbjaQ",
+      authDomain: "gw-reservation-4e4a1.firebaseapp.com",
+      projectId: "gw-reservation-4e4a1",
+      storageBucket: "gw-reservation-4e4a1.firebasestorage.app",
+      messagingSenderId: "865557238486",
+      appId: "1:865557238486:web:0392dd98b3442aa0d6af77",
+      measurementId: "G-EVJ8Q86MWZ"
+    };
+    // ────────────────────────────────────────────────────────────
+
+    const AUTH_DOMAIN_SUFFIX = '@gw-reservation-4e4a1.firebaseapp.com';
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const $ = id => document.getElementById(id);
+    const pad = n => String(n).padStart(2, '0');
+    let rooms = [];
+
+    // ─── 모달/로딩 ─────────────────────────────────────────
+    function showLoading(s) { $('loading').classList.toggle('show', s); }
+    let modalCb = null;
+    function showAlert(msg, cb) {
+      $('modalMessage').textContent = msg;
+      $('modalButtons').innerHTML = '<button style="background:#37474F;color:#fff;">확인</button>';
+      $('modalButtons').firstChild.onclick = () => closeModal(true);
+      modalCb = cb || null;
+      $('modal').classList.add('show');
+    }
+    function showConfirm(msg, cb) {
+      $('modalMessage').textContent = msg;
+      $('modalButtons').innerHTML =
+        '<button style="background:#757575;color:#fff;">아니오</button>' +
+        '<button style="background:#f44336;color:#fff;">예</button>';
+      const [no, yes] = $('modalButtons').children;
+      no.onclick = () => closeModal(false);
+      yes.onclick = () => closeModal(true);
+      modalCb = cb;
+      $('modal').classList.add('show');
+    }
+    function closeModal(run) {
+      $('modal').classList.remove('show');
+      if (run && modalCb) { const cb = modalCb; modalCb = null; cb(); }
+      else modalCb = null;
+    }
+
+    // ─── 인증 ──────────────────────────────────────────────
+    async function isAdminUid(uid) {
+      try {
+        const snap = await getDoc(doc(db, 'admins', uid));
+        return snap.exists();
+      } catch { return false; }
+    }
+
+    $('loginBtn').onclick = async () => {
+      const id = $('adminId').value.trim();
+      const pw = $('adminPw').value;
+      if (!id || !pw) return showAlert('아이디와 비밀번호를 입력해주세요.');
+      const email = id.includes('@') ? id : id + AUTH_DOMAIN_SUFFIX;
+      showLoading(true);
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, pw);
+        if (!(await isAdminUid(cred.user.uid))) {
+          await signOut(auth);
+          showAlert('관리자 권한이 없는 계정입니다.\nadmins 컬렉션에 등록된 계정만 사용할 수 있습니다.');
+          return;
+        }
+        enterDashboard();
+      } catch (e) {
+        const msg = {
+          'auth/invalid-credential': '아이디 또는 비밀번호가 올바르지 않습니다.',
+          'auth/user-not-found': '등록되지 않은 계정입니다.',
+          'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
+          'auth/too-many-requests': '시도가 너무 많습니다. 잠시 후 다시 시도해주세요.'
+        }[e.code] || ('로그인 실패: ' + e.message);
+        showAlert(msg);
+      } finally { showLoading(false); }
+    };
+
+    $('adminPw').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
+
+    $('logoutBtn').onclick = async () => {
+      await signOut(auth);
+      location.reload();
+    };
+
+    // 이미 로그인된 세션이 있으면 바로 대시보드로
+    onAuthStateChanged(auth, async user => {
+      if (user && await isAdminUid(user.uid)) enterDashboard();
+    });
+
+    async function enterDashboard() {
+      $('loginScreen').classList.remove('active');
+      $('dashScreen').classList.add('active');
+      $('logoutBtn').classList.remove('hidden');
+      await Promise.all([loadRoomsList(), loadSettingsPanel()]);
+      initAdmTimeSelects();
+      subscribeAdminMonth();
+    }
+
+    // ─── 탭 전환 ───────────────────────────────────────────
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        $(tab.dataset.tab).classList.add('active');
+      };
+    });
+
+    // ═══ 탭 1: 장소 관리 ═══════════════════════════════════
+    async function loadRoomsList() {
+      const snap = await getDocs(collection(db, 'rooms'));
+      rooms = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => ((a.order ?? 999) - (b.order ?? 999)) ||
+          String(a.name || '').localeCompare(String(b.name || ''), 'ko'));
+      renderRoomsList();
+      if ($('admCalBody').innerHTML) renderAdmCalendar(); // 장소 변경 즉시 달력 배지 반영
+    }
+
+    function renderRoomsList() {
+      const container = $('roomsList');
+      if (rooms.length === 0) {
+        container.innerHTML = '<div class="empty-message">등록된 장소가 없습니다. 위에서 추가하세요.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      rooms.forEach(room => {
+        const card = document.createElement('div');
+        card.className = 'item-card' + (room.active === false ? ' inactive' : '');
+        card.innerHTML = `
+          <div class="item-head">
+            <div class="item-title">${room.name || room.id}${room.active === false ? '<span class="off-tag">숨김</span>' : ''}</div>
+            <label class="switch" title="사용자 앱 표시 여부">
+              <input type="checkbox" ${room.active !== false ? 'checked' : ''}>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="item-meta">
+            동시예약 제한 ${room.capacityLimit ?? 1}
+            ${room.capacity ? ` · 정원 ${room.capacity}명` : ''}
+            ${room.equipment ? ` · ${room.equipment}` : ''}
+            · 순서 ${room.order ?? '-'}
+          </div>
+          <div class="item-actions">
+            <button class="btn btn-dark btn-sm act-edit">수정</button>
+            <button class="btn btn-red btn-sm act-del">삭제</button>
+          </div>
+          <div class="edit-form hidden">
+            <div class="form-group"><label>장소명</label><input type="text" class="e-name" value="${room.name || ''}"></div>
+            <div class="row3">
+              <div class="form-group"><label>동시예약 제한</label><input type="number" class="e-limit" value="${room.capacityLimit ?? 1}" min="1" inputmode="numeric"></div>
+              <div class="form-group"><label>정원(명)</label><input type="number" class="e-cap" value="${room.capacity ?? ''}" min="1" inputmode="numeric"></div>
+              <div class="form-group"><label>순서</label><input type="number" class="e-order" value="${room.order ?? ''}" min="1" inputmode="numeric"></div>
+            </div>
+            <div class="form-group"><label>장비</label><input type="text" class="e-equip" value="${room.equipment || ''}"></div>
+            <button class="btn btn-green e-save">저장</button>
+          </div>`;
+
+        // 표시/숨김 토글
+        card.querySelector('.switch input').onchange = async e => {
+          showLoading(true);
+          try {
+            await updateDoc(doc(db, 'rooms', room.id), { active: e.target.checked });
+            await loadRoomsList();
+          } catch (err) {
+            showAlert('변경 실패: ' + err.message);
+            e.target.checked = !e.target.checked;
+          } finally { showLoading(false); }
+        };
+
+        // 수정 폼 열기/닫기
+        card.querySelector('.act-edit').onclick = () =>
+          card.querySelector('.edit-form').classList.toggle('hidden');
+
+        // 저장
+        card.querySelector('.e-save').onclick = async () => {
+          const name = card.querySelector('.e-name').value.trim();
+          const limit = parseInt(card.querySelector('.e-limit').value);
+          if (!name) return showAlert('장소명을 입력해주세요.');
+          if (!limit || limit < 1) return showAlert('동시예약 제한은 1 이상이어야 합니다.');
+          const data = {
+            name,
+            capacityLimit: limit,
+            equipment: card.querySelector('.e-equip').value.trim()
+          };
+          const cap = parseInt(card.querySelector('.e-cap').value);
+          const ord = parseInt(card.querySelector('.e-order').value);
+          if (cap) data.capacity = cap;
+          if (ord) data.order = ord;
+          showLoading(true);
+          try {
+            await updateDoc(doc(db, 'rooms', room.id), data);
+            showAlert('저장되었습니다.');
+            await loadRoomsList();
+          } catch (err) { showAlert('저장 실패: ' + err.message); }
+          finally { showLoading(false); }
+        };
+
+        // 삭제
+        card.querySelector('.act-del').onclick = () => {
+          showConfirm(
+            `"${room.name || room.id}"을(를) 완전히 삭제할까요?\n\n기존 예약 기록은 남지만 이 장소는 더 이상 예약할 수 없게 됩니다.\n일시적으로 숨기려면 삭제 대신 스위치를 꺼두세요.`,
+            async () => {
+              showLoading(true);
+              try {
+                await deleteDoc(doc(db, 'rooms', room.id));
+                await loadRoomsList();
+              } catch (err) { showAlert('삭제 실패: ' + err.message); }
+              finally { showLoading(false); }
+            });
+        };
+
+        container.appendChild(card);
+      });
+    }
+
+    $('addRoomBtn').onclick = async () => {
+      const name = $('newName').value.trim();
+      const limit = parseInt($('newLimit').value);
+      if (!name) return showAlert('장소명을 입력해주세요.');
+      if (!limit || limit < 1) return showAlert('동시예약 제한은 1 이상이어야 합니다.');
+      if (rooms.some(r => r.name === name)) return showAlert('같은 이름의 장소가 이미 있습니다.');
+
+      const data = { name, capacityLimit: limit, active: true, equipment: $('newEquipment').value.trim() };
+      const cap = parseInt($('newCapacity').value);
+      const ord = parseInt($('newOrder').value);
+      data.capacity = cap || null;
+      data.order = ord || (Math.max(0, ...rooms.map(r => r.order || 0)) + 1);
+
+      showLoading(true);
+      try {
+        await addDoc(collection(db, 'rooms'), data);
+        $('newName').value = ''; $('newEquipment').value = '';
+        $('newCapacity').value = ''; $('newOrder').value = ''; $('newLimit').value = '1';
+        showAlert('장소가 추가되었습니다.');
+        await loadRoomsList();
+      } catch (err) { showAlert('추가 실패: ' + err.message); }
+      finally { showLoading(false); }
+    };
+
+    // ═══ 탭 2: 운영 설정 ═══════════════════════════════════
+    let settingsData = { openTime: '08:00', closeTime: '24:00', holidays: {} };
+
+    function initHourSelects() {
+      [$('setOpen'), $('setClose')].forEach(sel => {
+        sel.innerHTML = '';
+        for (let i = 0; i <= 24; i++) sel.add(new Option(`${i}시`, pad(i) + ':00'));
+      });
+    }
+
+    async function loadSettingsPanel() {
+      initHourSelects();
+      try {
+        const snap = await getDoc(doc(db, 'settings', 'operatingHours'));
+        if (snap.exists()) settingsData = { holidays: {}, ...snap.data() };
+      } catch {}
+      $('setOpen').value = settingsData.openTime || '08:00';
+      $('setClose').value = settingsData.closeTime || '24:00';
+      renderHolidays();
+    }
+
+    $('saveHoursBtn').onclick = async () => {
+      const open = $('setOpen').value, close = $('setClose').value;
+      if (open >= close) return showAlert('종료 시각은 시작 시각보다 늦어야 합니다.');
+      showLoading(true);
+      try {
+        settingsData.openTime = open;
+        settingsData.closeTime = close;
+        await setDoc(doc(db, 'settings', 'operatingHours'), settingsData);
+        showAlert('운영시간이 저장되었습니다.\n사용자 앱은 새로고침 후 반영됩니다.');
+      } catch (err) { showAlert('저장 실패: ' + err.message); }
+      finally { showLoading(false); }
+    };
+
+    function renderHolidays() {
+      const container = $('holidayList');
+      const entries = Object.entries(settingsData.holidays || {}).sort((a, b) => a[0].localeCompare(b[0]));
+      if (entries.length === 0) {
+        container.innerHTML = '<div class="empty-message">등록된 공휴일이 없습니다.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      entries.forEach(([date, name]) => {
+        const row = document.createElement('div');
+        row.className = 'holiday-row';
+        row.innerHTML = `
+          <span class="h-date">${date}</span>
+          <span class="h-name">${name}</span>
+          <button class="btn btn-red btn-sm">삭제</button>`;
+        row.querySelector('button').onclick = async () => {
+          showLoading(true);
+          try {
+            delete settingsData.holidays[date];
+            await setDoc(doc(db, 'settings', 'operatingHours'), settingsData);
+            renderHolidays();
+          } catch (err) { showAlert('삭제 실패: ' + err.message); }
+          finally { showLoading(false); }
+        };
+        container.appendChild(row);
+      });
+    }
+
+    $('addHolidayBtn').onclick = async () => {
+      const date = $('newHolidayDate').value;
+      const name = $('newHolidayName').value.trim();
+      if (!date) return showAlert('날짜를 선택해주세요.');
+      if (!name) return showAlert('공휴일 이름을 입력해주세요.');
+      showLoading(true);
+      try {
+        if (!settingsData.holidays) settingsData.holidays = {};
+        settingsData.holidays[date] = name;
+        await setDoc(doc(db, 'settings', 'operatingHours'), settingsData);
+        $('newHolidayDate').value = ''; $('newHolidayName').value = '';
+        renderHolidays();
+      } catch (err) { showAlert('추가 실패: ' + err.message); }
+      finally { showLoading(false); }
+    };
+
+    // ═══ 탭 3: 예약 관리 (달력 방식) ═══════════════════════
+    let admYear = new Date().getFullYear();
+    let admMonth = new Date().getMonth() + 1;
+    let admResv = [];          // 이번 달 예약 캐시 (실시간)
+    let unsubAdm = null;
+    let editingId = null;      // null이면 새 예약, 값이 있으면 수정
+    let formDate = null;
+
+    function roomShort(name) {
+      if (!name) return '?';
+      const s = String(name).match(/[A-Za-z0-9]+$/);
+      return String(name).charAt(0) + (s ? s[0] : '');
+    }
+    function fmtK(dateStr) {
+      const days = ['일','월','화','수','목','금','토'];
+      const [y, m, d] = dateStr.split('-');
+      return `${y}년 ${+m}월 ${+d}일 (${days[new Date(dateStr+'T00:00:00').getDay()]})`;
+    }
+    function fmtPhone(p) {
+      const n = String(p).replace(/[^0-9]/g, '');
+      return n.length === 11 ? `${n.slice(0,3)}-${n.slice(3,7)}-${n.slice(7)}` : n;
+    }
+    function overlap(s1, e1, s2, e2) { return !(e1 <= s2 || s1 >= e2); }
+
+    function initAdmTimeSelects() {
+      // 관리자는 운영시간 제약 없이 0~24시 전체 선택 가능
+      [$('fStartH'), $('fEndH')].forEach(sel => {
+        sel.innerHTML = '';
+        for (let i = 0; i <= 24; i++) sel.add(new Option(`${i}시`, pad(i)));
+      });
+      [$('fStartM'), $('fEndM')].forEach(sel => {
+        sel.innerHTML = '';
+        for (let i = 0; i < 60; i += 10) sel.add(new Option(`${i}분`, pad(i)));
+      });
+    }
+
+    // ── 월별 실시간 구독 ──────────────────────────────────
+    function subscribeAdminMonth() {
+      if (unsubAdm) { unsubAdm(); unsubAdm = null; }
+      const start = `${admYear}-${pad(admMonth)}-01`;
+      const end = `${admYear}-${pad(admMonth)}-31`;
+      const q = query(collection(db, 'reservations'),
+        where('date', '>=', start), where('date', '<=', end));
+      unsubAdm = onSnapshot(q, snap => {
+        admResv = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderAdmCalendar();
+        const openDate = $('dayList').dataset.date;
+        if (openDate) renderDayList(openDate);
+      }, err => showAlert('예약 로드 실패: ' + err.message));
+    }
+
+    $('admPrevBtn').onclick = () => changeAdmMonth(-1);
+    $('admNextBtn').onclick = () => changeAdmMonth(1);
+    function changeAdmMonth(delta) {
+      admMonth += delta;
+      if (admMonth > 12) { admMonth = 1; admYear++; }
+      if (admMonth < 1) { admMonth = 12; admYear--; }
+      $('dayList').dataset.date = '';
+      $('dayList').innerHTML = '';
+      $('dayListTitle').classList.add('hidden');
+      subscribeAdminMonth();
+    }
+
+    // ── 달력 렌더링 ───────────────────────────────────────
+    function renderAdmCalendar() {
+      $('admYear').textContent = admYear;
+      $('admMonth').textContent = admMonth;
+
+      const firstDow = new Date(admYear, admMonth - 1, 1).getDay();
+      const lastDate = new Date(admYear, admMonth, 0).getDate();
+      const prevLastDate = new Date(admYear, admMonth - 1, 0).getDate();
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+      const byDate = {};
+      admResv.forEach(r => {
+        if (!byDate[r.date]) byDate[r.date] = {};
+        byDate[r.date][r.roomId] = (byDate[r.date][r.roomId] || 0) + 1;
+      });
+
+      const tbody = $('admCalBody'); tbody.innerHTML = '';
+      let date = 1, next = 1;
+      for (let i = 0; i < 6; i++) {
+        const row = document.createElement('tr');
+        for (let j = 0; j < 7; j++) {
+          const cell = document.createElement('td');
+          if (i === 0 && j < firstDow) {
+            cell.innerHTML = `<div class="date-number">${prevLastDate - firstDow + j + 1}</div>`;
+            cell.classList.add('other-month');
+          } else if (date > lastDate) {
+            cell.innerHTML = `<div class="date-number">${next++}</div>`;
+            cell.classList.add('other-month');
+          } else {
+            const dateStr = `${admYear}-${pad(admMonth)}-${pad(date)}`;
+            let html = `<div class="date-number">${date}</div>`;
+            if (byDate[dateStr]) {
+              rooms.forEach(room => {
+                const c = byDate[dateStr][room.id];
+                if (c) html += `<span class="reservation-badge" data-d="${dateStr}">${roomShort(room.name)}(${c})</span>`;
+              });
+            }
+            cell.innerHTML = html;
+            cell.onclick = e => {
+              if (e.target.classList.contains('reservation-badge')) {
+                e.stopPropagation();
+                renderDayList(e.target.dataset.d);
+                $('dayListTitle').scrollIntoView({ behavior: 'smooth' });
+              } else {
+                openAdminForm(dateStr, null);
+              }
+            };
+            if (dateStr === todayStr) cell.classList.add('today');
+            if (j === 0) cell.classList.add('sunday');
+            else if (j === 6) cell.classList.add('saturday');
+            date++;
+          }
+          row.appendChild(cell);
+        }
+        tbody.appendChild(row);
+        if (date > lastDate && next > 7) break;
+      }
+    }
+
+    // ── 날짜별 예약 목록 (수정/취소) ──────────────────────
+    function renderDayList(dateStr) {
+      $('dayList').dataset.date = dateStr;
+      $('dayListTitle').textContent = fmtK(dateStr) + ' 예약';
+      $('dayListTitle').classList.remove('hidden');
+
+      const list = admResv
+        .filter(r => r.date === dateStr)
+        .sort((a, b) => ((a.roomName || '') + a.startTime).localeCompare((b.roomName || '') + b.startTime));
+
+      const container = $('dayList');
+      if (list.length === 0) {
+        container.innerHTML = '<div class="empty-message">이 날짜에는 예약이 없습니다.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      list.forEach(r => {
+        const entry = document.createElement('div');
+        entry.className = 'resv-entry';
+        entry.innerHTML = `
+          <div class="info">
+            <div class="resv-room">${r.roomName || r.roomId}</div>
+            <div class="resv-time">${r.startTime} ~ ${r.endTime}</div>
+            <div class="resv-detail">${r.name} (${r.phone})<br>${r.purpose} · ${r.people}명</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button class="btn btn-dark btn-sm b-edit">수정</button>
+            <button class="btn btn-red btn-sm b-del">취소</button>
+          </div>`;
+        entry.querySelector('.b-edit').onclick = () => openAdminForm(dateStr, r);
+        entry.querySelector('.b-del').onclick = () => {
+          showConfirm(`${r.name}님의 예약을 취소할까요?\n${r.roomName || ''} ${r.startTime}~${r.endTime}`, async () => {
+            showLoading(true);
+            try { await deleteDoc(doc(db, 'reservations', r.id)); }
+            catch (err) { showAlert('취소 실패: ' + err.message); }
+            finally { showLoading(false); }
+          });
+        };
+        container.appendChild(entry);
+      });
+    }
+
+    // ── 예약 추가/수정 폼 ─────────────────────────────────
+    function openAdminForm(dateStr, resv) {
+      editingId = resv ? resv.id : null;
+      formDate = dateStr;
+      $('formTitle').textContent = (resv ? '예약 수정' : '예약 추가') + ' — ' + fmtK(dateStr);
+
+      // 장소 셀렉트 (숨김 장소도 관리자는 선택 가능, 표시만 구분)
+      const roomSel = $('fRoom'); roomSel.innerHTML = '';
+      rooms.forEach(r => roomSel.add(new Option(
+        (r.name || r.id) + (r.active === false ? ' (숨김)' : ''), r.id)));
+
+      if (resv) {
+        $('fName').value = resv.name || '';
+        $('fPhone').value = resv.phone || '';
+        roomSel.value = resv.roomId;
+        const [sh, sm] = resv.startTime.split(':');
+        const [eh, em] = resv.endTime.split(':');
+        $('fStartH').value = sh; $('fStartM').value = sm;
+        $('fEndH').value = eh; $('fEndM').value = em;
+        $('fPurpose').value = resv.purpose || '';
+        $('fPeople').value = resv.people || '';
+        $('fRepeatGroup').classList.add('hidden');   // 수정 시 반복 옵션 없음
+        $('fRepeatEndGroup').classList.add('hidden');
+      } else {
+        $('fName').value = ''; $('fPhone').value = '';
+        $('fStartH').value = '09'; $('fStartM').value = '00';
+        $('fEndH').value = '10'; $('fEndM').value = '00';
+        $('fPurpose').value = ''; $('fPeople').value = '';
+        $('fRepeat').value = '없음'; $('fRepeatEnd').value = '';
+        $('fRepeatGroup').classList.remove('hidden');
+        $('fRepeatEndGroup').classList.add('hidden');
+      }
+      $('resvCalView').classList.add('hidden');
+      $('resvFormView').classList.remove('hidden');
+      window.scrollTo(0, 0);
+    }
+
+    $('fRepeat').onchange = () =>
+      $('fRepeatEndGroup').classList.toggle('hidden', $('fRepeat').value === '없음');
+
+    $('fBackBtn').onclick = () => {
+      $('resvFormView').classList.add('hidden');
+      $('resvCalView').classList.remove('hidden');
+    };
+
+    function getRepeatDates(startDate, type, endDate) {
+      const dates = [startDate];
+      if (type === '없음') return dates;
+      const end = new Date(endDate + 'T00:00:00');
+      const cur = new Date(startDate + 'T00:00:00');
+      const step = type === '매일' ? 1 : 7;
+      while (true) {
+        cur.setDate(cur.getDate() + step);
+        if (cur > end) break;
+        dates.push(`${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`);
+      }
+      return dates;
+    }
+
+    async function findConflicts(dates, roomId, startTime, endTime, excludeId) {
+      const room = rooms.find(r => r.id === roomId);
+      const limit = room?.capacityLimit || 1;
+      const conflicts = [];
+      for (let i = 0; i < dates.length; i += 10) {
+        const chunk = dates.slice(i, i + 10);
+        const snap = await getDocs(query(collection(db, 'reservations'),
+          where('roomId', '==', roomId), where('date', 'in', chunk)));
+        const cnt = {};
+        snap.forEach(d => {
+          if (excludeId && d.id === excludeId) return;
+          const r = d.data();
+          if (overlap(startTime, endTime, r.startTime, r.endTime))
+            cnt[r.date] = (cnt[r.date] || 0) + 1;
+        });
+        chunk.forEach(dt => { if ((cnt[dt] || 0) >= limit) conflicts.push(dt); });
+      }
+      return conflicts;
+    }
+
+    $('fSaveBtn').onclick = async () => {
+      const name = $('fName').value.trim();
+      const phoneRaw = $('fPhone').value.trim().replace(/[^0-9]/g, '');
+      const roomId = $('fRoom').value;
+      const startTime = $('fStartH').value + ':' + $('fStartM').value;
+      const endTime = $('fEndH').value + ':' + $('fEndM').value;
+      const purpose = $('fPurpose').value.trim();
+      const people = $('fPeople').value.trim();
+
+      if (!name) return showAlert('예약자 이름을 입력해주세요.');
+      if (!/^\d{10,11}$/.test(phoneRaw)) return showAlert('올바른 연락처를 입력해주세요. (숫자만 10-11자리)');
+      if (!roomId) return showAlert('장소를 선택해주세요.');
+      if (!purpose) return showAlert('사용목적을 입력해주세요.');
+      if (!people) return showAlert('사용인원을 입력해주세요.');
+      if (startTime >= endTime) return showAlert('종료 시간은 시작 시간보다 늦어야 합니다.');
+
+      const phone = fmtPhone(phoneRaw);
+      const room = rooms.find(r => r.id === roomId);
+
+      // 반복 (새 예약만)
+      let dates = [formDate];
+      if (!editingId) {
+        const repeat = $('fRepeat').value;
+        if (repeat !== '없음') {
+          const rEnd = $('fRepeatEnd').value;
+          if (!rEnd) return showAlert('반복 종료 날짜를 선택해주세요.');
+          if (rEnd <= formDate) return showAlert('종료 날짜는 시작 날짜보다 늦어야 합니다.');
+          dates = getRepeatDates(formDate, repeat, rEnd);
+        }
+      }
+
+      $('fSaveBtn').disabled = true;
+      showLoading(true);
+      try {
+        const conflicts = await findConflicts(dates, roomId, startTime, endTime, editingId);
+        const save = async () => {
+          showLoading(true);
+          try {
+            if (editingId) {
+              await updateDoc(doc(db, 'reservations', editingId), {
+                name, phone, startTime, endTime,
+                roomId, roomName: room.name, purpose, people: Number(people)
+              });
+            } else {
+              const groupId = 'G' + Date.now();
+              for (let i = 0; i < dates.length; i += 400) {
+                const batch = writeBatch(db);
+                dates.slice(i, i + 400).forEach(dt => {
+                  batch.set(doc(collection(db, 'reservations')), {
+                    reservationGroupId: groupId,
+                    phone, name, date: dt, startTime, endTime,
+                    roomId, roomName: room.name,
+                    purpose, people: Number(people),
+                    createdAt: serverTimestamp()
+                  });
+                });
+                await batch.commit();
+              }
+            }
+            showAlert(editingId ? '예약이 수정되었습니다.'
+              : `예약이 등록되었습니다.${dates.length > 1 ? `\n(총 ${dates.length}건)` : ''}`);
+            $('fBackBtn').click();
+          } catch (err) { showAlert('저장 실패: ' + err.message); }
+          finally { showLoading(false); }
+        };
+
+        if (conflicts.length > 0) {
+          // 관리자는 정원 초과 시 강제 등록 선택 가능
+          showLoading(false);
+          showConfirm(
+            `아래 날짜는 예약이 이미 가득 찼습니다.\n\n${conflicts.slice(0,5).join('\n')}${conflicts.length > 5 ? `\n외 ${conflicts.length-5}건` : ''}\n\n관리자 권한으로 그래도 등록(초과 허용)할까요?`,
+            save);
+        } else {
+          await save();
+        }
+      } catch (err) {
+        showAlert('저장 실패: ' + err.message);
+      } finally {
+        showLoading(false);
+        $('fSaveBtn').disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
