@@ -214,6 +214,14 @@
       background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9;
       line-height: 1.4;
     }
+    .event-label {
+      font-size: 10px; font-weight: bold;
+      padding: 1px 3px; margin: 1px 0;
+      border-radius: 4px; display: block; text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background: #F3E5F5; color: #6A1B9A; border: 1px solid #CE93D8;
+      line-height: 1.4;
+    }
 
     .empty-message { text-align: center; color: #999; padding: 24px 12px; font-size: 14.5px; }
     .hidden { display: none !important; }
@@ -342,6 +350,14 @@
           <input type="date" id="newHolidayDate">
           <input type="text" id="newHolidayName" placeholder="예: 성탄절">
           <button class="btn btn-green btn-sm" id="addHolidayBtn">추가</button>
+        </div>
+
+        <div class="section-title">특별행사 (달력에 보라색 표시)</div>
+        <div id="eventList"></div>
+        <div class="holiday-add">
+          <input type="date" id="newEventDate">
+          <input type="text" id="newEventName" placeholder="예: 부활절, 여름성경학교">
+          <button class="btn btn-green btn-sm" id="addEventBtn">추가</button>
         </div>
       </div>
 
@@ -550,7 +566,7 @@
       $('loginScreen').classList.remove('active');
       $('dashScreen').classList.add('active');
       $('logoutBtn').classList.remove('hidden');
-      await Promise.all([loadRoomsList(), loadSettingsPanel()]);
+      await Promise.all([loadRoomsList(), loadSettingsPanel(), loadEvents()]);
       initAdmTimeSelects();
       subscribeAdminMonth();
     }
@@ -775,6 +791,63 @@
       finally { showLoading(false); }
     };
 
+    // ── 특별행사 관리 ──────────────────────────────────────
+    let eventsCache = [];
+
+    async function loadEvents() {
+      try {
+        const snap = await getDocs(collection(db, 'events'));
+        eventsCache = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      } catch { eventsCache = []; }
+      renderEvents();
+    }
+
+    function renderEvents() {
+      const container = $('eventList');
+      if (eventsCache.length === 0) {
+        container.innerHTML = '<div class="empty-message">등록된 행사가 없습니다.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      eventsCache.forEach(ev => {
+        const row = document.createElement('div');
+        row.className = 'holiday-row';
+        row.innerHTML = `
+          <span class="h-date">${ev.date}</span>
+          <span class="h-name">${ev.name}</span>
+          <button class="btn btn-red btn-sm">삭제</button>`;
+        row.querySelector('button').onclick = async () => {
+          showLoading(true);
+          try {
+            await deleteDoc(doc(db, 'events', ev.id));
+            await loadEvents();
+            await loadAdmEvents();
+            if ($('admCalBody').innerHTML) renderAdmCalendar();
+          } catch (err) { showAlert('삭제 실패: ' + err.message); }
+          finally { showLoading(false); }
+        };
+        container.appendChild(row);
+      });
+    }
+
+    $('addEventBtn').onclick = async () => {
+      const date = $('newEventDate').value;
+      const name = $('newEventName').value.trim();
+      if (!date) return showAlert('날짜를 선택해주세요.');
+      if (!name) return showAlert('행사 이름을 입력해주세요.');
+      showLoading(true);
+      try {
+        await addDoc(collection(db, 'events'), { date, name });
+        $('newEventDate').value = ''; $('newEventName').value = '';
+        await loadEvents();
+        await loadAdmEvents();
+        if ($('admCalBody').innerHTML) renderAdmCalendar();
+      } catch (err) { showAlert('추가 실패: ' + err.message); }
+      finally { showLoading(false); }
+    };
+
     // ═══ 탭 3: 예약 관리 (달력 방식) ═══════════════════════
     let admYear = new Date().getFullYear();
     let admMonth = new Date().getMonth() + 1;
@@ -812,18 +885,38 @@
     }
 
     // ── 월별 실시간 구독 ──────────────────────────────────
+    let admEvents = {};   // { "YYYY-MM-DD": ["부활절", ...] }
+
+    async function loadAdmEvents() {
+      admEvents = {};
+      const start = `${admYear}-${pad(admMonth)}-01`;
+      const end = `${admYear}-${pad(admMonth)}-31`;
+      try {
+        const snap = await getDocs(query(collection(db, 'events'),
+          where('date', '>=', start), where('date', '<=', end)));
+        snap.forEach(d => {
+          const e = d.data();
+          if (!e.date || !e.name) return;
+          if (!admEvents[e.date]) admEvents[e.date] = [];
+          admEvents[e.date].push(e.name);
+        });
+      } catch { admEvents = {}; }
+    }
+
     function subscribeAdminMonth() {
       if (unsubAdm) { unsubAdm(); unsubAdm = null; }
       const start = `${admYear}-${pad(admMonth)}-01`;
       const end = `${admYear}-${pad(admMonth)}-31`;
       const q = query(collection(db, 'reservations'),
         where('date', '>=', start), where('date', '<=', end));
-      unsubAdm = onSnapshot(q, snap => {
-        admResv = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderAdmCalendar();
-        const openDate = $('dayList').dataset.date;
-        if (openDate) renderDayList(openDate);
-      }, err => showAlert('예약 로드 실패: ' + err.message));
+      loadAdmEvents().finally(() => {
+        unsubAdm = onSnapshot(q, snap => {
+          admResv = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderAdmCalendar();
+          const openDate = $('dayList').dataset.date;
+          if (openDate) renderDayList(openDate);
+        }, err => showAlert('예약 로드 실패: ' + err.message));
+      });
     }
 
     $('admPrevBtn').onclick = () => changeAdmMonth(-1);
@@ -870,6 +963,11 @@
           } else {
             const dateStr = `${admYear}-${pad(admMonth)}-${pad(date)}`;
             let html = `<div class="date-number">${date}</div>`;
+            if (admEvents[dateStr]) {
+              admEvents[dateStr].forEach(name => {
+                html += `<span class="event-label">${name}</span>`;
+              });
+            }
             if (byDate[dateStr]) {
               rooms.forEach(room => {
                 const c = byDate[dateStr][room.id];
