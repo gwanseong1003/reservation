@@ -857,9 +857,11 @@
     let formDate = null;
 
     function roomShort(name) {
+      // "코이노니아4(B1채플실)" → "코4", "샬롬홀A" → "샬A"
       if (!name) return '?';
-      const s = String(name).match(/[A-Za-z0-9]+$/);
-      return String(name).charAt(0) + (s ? s[0] : '');
+      const core = String(name).replace(/[\(（][^)）]*[\)）]\s*$/, '').trim() || String(name);
+      const s = core.match(/[A-Za-z0-9]+$/);
+      return core.charAt(0) + (s ? s[0] : '');
     }
     function fmtK(dateStr) {
       const days = ['일','월','화','수','목','금','토'];
