@@ -82,9 +82,18 @@ body{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic',sa
 .add-layout{ display:grid; grid-template-columns:1fr 150px; gap:12px; align-items:start; }
 .side-panel{ background:#fafafa; border:1px solid #e0e0e0; border-radius:10px; padding:10px; position:sticky; top:calc(62px + env(safe-area-inset-top,0px)); }
 .side-title{ font-size:12.5px; font-weight:bold; color:#555; padding-bottom:6px; margin-bottom:6px; border-bottom:1px solid #ddd; }
-.side-room{ margin-bottom:8px; }
-.side-room-name{ font-size:11.5px; font-weight:bold; color:#2e7d32; }
-.side-slot{ font-size:11px; color:#666; line-height:1.5; padding-left:4px; }
+.side-room{ margin-bottom:10px; }
+.side-room-name{ font-size:11.5px; font-weight:bold; color:#2e7d32; margin-bottom:2px; }
+.side-slot{
+  font-size:10.5px; color:#666; line-height:1.45;
+  padding:3px 5px; margin-bottom:3px;
+  background:#fff; border:1px solid #e8e8e8; border-radius:5px;
+}
+.side-slot .ss-time{ display:block; font-weight:bold; color:#444; }
+.side-slot .ss-purpose{
+  display:block; color:#888;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
 .side-empty{ font-size:11.5px; color:#999; text-align:center; padding:12px 0; }
 
 .form-group{ margin-bottom:16px; }
@@ -143,6 +152,12 @@ input:focus,select:focus,textarea:focus{ border-color:var(--green); }
 .loc-entry.none{ color:#999; text-align:center; font-style:italic; font-size:14px; }
 .entry-time{ font-size:16px; font-weight:bold; color:#333; margin-bottom:5px; }
 .entry-info{ font-size:14px; color:#666; margin-bottom:3px; }
+.event-box{
+  background:var(--purple-bg); border:1px solid var(--purple-border);
+  border-radius:10px; padding:12px 14px; margin-bottom:16px;
+}
+.event-box .eb-title{ font-size:12.5px; font-weight:bold; color:var(--purple-fg); margin-bottom:6px; }
+.event-box .eb-name{ font-size:17px; font-weight:bold; color:var(--purple-fg); line-height:1.5; }
 
 /* 로딩/모달 */
 .loading{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:9999; justify-content:center; align-items:center; }
@@ -163,9 +178,9 @@ input:focus,select:focus,textarea:focus{ border-color:var(--green); }
   .header .admin-link{ font-size:11px; padding:6px 8px; right:8px; }
   .calendar-table td{ height:78px; }
   .badge{ font-size:9.5px; }
-  .add-layout{ grid-template-columns:1fr 118px; gap:8px; }
+  .add-layout{ grid-template-columns:1fr 126px; gap:8px; }
   .side-room-name{ font-size:11px; }
-  .side-slot{ font-size:10px; }
+  .side-slot{ font-size:9.5px; padding:3px 4px; }
   .room-name{ font-size:13px; }
 }
 </style>
@@ -276,6 +291,10 @@ input:focus,select:focus,textarea:focus{ border-color:var(--green); }
   <!-- ══ 날짜별 예약 현황 ══ -->
   <div id="statusScreen" class="screen">
     <div class="date-header"><h2 id="statusDate"></h2></div>
+    <button class="btn btn-primary" id="statusAddBtn" style="margin-top:0;margin-bottom:16px;">
+      <span style="font-size:20px;">＋</span> 일정 추가
+    </button>
+    <div id="statusEvents"></div>
     <div id="statusList"></div>
     <button class="btn btn-secondary" id="statusBackBtn">돌아가기</button>
   </div>
@@ -506,12 +525,7 @@ function renderCal(){
           });
         }
         td.innerHTML = h;
-        td.onclick = e=>{
-          if(e.target.classList.contains('badge')){
-            e.stopPropagation();
-            openStatus(e.target.dataset.d);
-          } else openAdd(ds);
-        };
+        td.onclick = ()=>openStatus(ds);
         if(ds===today) td.classList.add('today');
         if(j===0 || holidays[ds]) td.classList.add('sunday');
         else if(j===6) td.classList.add('saturday');
@@ -567,8 +581,20 @@ function renderMy(){
 }
 
 // ── 날짜별 현황 ──
+let statusDateStr = null;
 function openStatus(ds){
+  statusDateStr = ds;
   $('statusDate').textContent = fmtK(ds);
+
+  // 관리자가 등록한 특별행사
+  const evs = monthEvents[ds] || [];
+  $('statusEvents').innerHTML = evs.length
+    ? `<div class="event-box">
+        <div class="eb-title">📌 특별행사</div>
+        ${evs.map(n=>`<div class="eb-name">${n}</div>`).join('')}
+      </div>`
+    : '';
+
   const list = monthResv.filter(r=>r.date===ds);
   const c = $('statusList'); c.innerHTML = '';
   rooms.forEach(rm=>{
@@ -592,6 +618,7 @@ function openStatus(ds){
   });
   show('statusScreen');
 }
+$('statusAddBtn').onclick = ()=>openAdd(statusDateStr || todayStr());
 $('statusBackBtn').onclick = ()=>show('calScreen');
 
 // ── 폼 초기화 ──
@@ -701,9 +728,12 @@ function renderSide(ds){
   list.forEach(r=>{ (byRoom[r.roomId] = byRoom[r.roomId] || []).push(r); });
   c.innerHTML = rooms.filter(rm=>byRoom[rm.id]).map(rm=>
     `<div class="side-room">
-      <div class="side-room-name">${roomShort(rm.name)} ${roomPlain(rm.name)}</div>
+      <div class="side-room-name">${roomPlain(rm.name)}</div>
       ${byRoom[rm.id].sort((a,b)=>a.startTime.localeCompare(b.startTime))
-        .map(r=>`<div class="side-slot">${r.startTime}~${r.endTime}</div>`).join('')}
+        .map(r=>`<div class="side-slot">
+            <span class="ss-time">${r.startTime}~${r.endTime}</span>
+            <span class="ss-purpose">${r.purpose||''}</span>
+          </div>`).join('')}
     </div>`).join('');
 }
 
