@@ -274,15 +274,12 @@
     <div id="loginScreen" class="screen active">
       <div class="login-box">
         <div class="form-group">
-          <label for="adminId">관리자 아이디</label>
-          <input type="text" id="adminId" placeholder="gwanseong" autocomplete="username">
-        </div>
-        <div class="form-group">
-          <label for="adminPw">비밀번호</label>
-          <input type="password" id="adminPw" autocomplete="current-password">
+          <label for="adminPw">관리자 비밀번호</label>
+          <input type="password" id="adminPw" placeholder="비밀번호" autocomplete="current-password" inputmode="numeric">
         </div>
         <button class="btn btn-dark" id="loginBtn">관리자 로그인</button>
-        <div class="login-hint">Firebase Authentication에 등록된<br>관리자 계정으로만 접근할 수 있습니다.</div>
+        <div class="login-hint">관리자만 접근할 수 있는 화면입니다.<br>비밀번호를 입력해주세요.</div>
+        <button class="btn btn-secondary" onclick="location.href='index.html'">예약 화면으로</button>
       </div>
     </div>
 
@@ -481,6 +478,7 @@
     // ────────────────────────────────────────────────────────────
 
     const AUTH_DOMAIN_SUFFIX = '@gw-reservation-4e4a1.firebaseapp.com';
+    const ADMIN_ID = 'gwanseong';   // 고정 관리자 계정 (비밀번호는 저장하지 않음)
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -526,27 +524,27 @@
     }
 
     $('loginBtn').onclick = async () => {
-      const id = $('adminId').value.trim();
       const pw = $('adminPw').value;
-      if (!id || !pw) return showAlert('아이디와 비밀번호를 입력해주세요.');
-      const email = id.includes('@') ? id : id + AUTH_DOMAIN_SUFFIX;
+      if (!pw) return showAlert('비밀번호를 입력해주세요.');
+      const email = ADMIN_ID + AUTH_DOMAIN_SUFFIX;
       showLoading(true);
       try {
         const cred = await signInWithEmailAndPassword(auth, email, pw);
         if (!(await isAdminUid(cred.user.uid))) {
           await signOut(auth);
-          showAlert('관리자 권한이 없는 계정입니다.\nadmins 컬렉션에 등록된 계정만 사용할 수 있습니다.');
+          showAlert('관리자 권한이 없는 계정입니다.');
           return;
         }
         enterDashboard();
       } catch (e) {
         const msg = {
-          'auth/invalid-credential': '아이디 또는 비밀번호가 올바르지 않습니다.',
-          'auth/user-not-found': '등록되지 않은 계정입니다.',
+          'auth/invalid-credential': '비밀번호가 올바르지 않습니다.',
+          'auth/user-not-found': '관리자 계정을 찾을 수 없습니다.',
           'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
-          'auth/too-many-requests': '시도가 너무 많습니다. 잠시 후 다시 시도해주세요.'
+          'auth/too-many-requests': '시도가 너무 많습니다.\n잠시 후 다시 시도해주세요.'
         }[e.code] || ('로그인 실패: ' + e.message);
         showAlert(msg);
+        $('adminPw').value = '';
       } finally { showLoading(false); }
     };
 
