@@ -155,6 +155,22 @@
     }
     .holiday-row .h-date { font-weight: bold; color: #333; min-width: 100px; }
     .holiday-row .h-name { flex: 1; color: #666; }
+    .bulk-box {
+      background: #FFF8E1; border: 1px solid #FFE082;
+      border-radius: 8px; padding: 12px; margin-bottom: 14px;
+    }
+    .bulk-desc { font-size: 12.5px; color: #8D6E1F; line-height: 1.7; margin-bottom: 10px; }
+    .bulk-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .bulk-row select { padding: 10px; font-size: 14.5px; }
+    .bulk-row .btn-sm { padding: 11px 16px; }
+    .holiday-edit {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      padding: 10px; margin-bottom: 8px;
+      background: #f5f7f8; border-radius: 8px;
+    }
+    .holiday-edit input { padding: 10px; font-size: 14.5px; }
+    .holiday-edit .edit-btns { grid-column: 1 / -1; display: flex; gap: 8px; }
+    .holiday-edit .edit-btns .btn-sm { flex: 1; }
     .holiday-add { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 8px; margin-top: 12px; }
     .holiday-add .btn-sm { padding: 12px 14px; }
 
@@ -342,6 +358,17 @@
         </div>
 
         <div class="section-title">공휴일 (달력에 빨간색 표시)</div>
+        <div class="bulk-box">
+          <div class="bulk-desc">
+            신정·삼일절·어린이날·현충일·광복절·개천절·한글날·성탄절은
+            <b>자동으로 표시</b>됩니다.<br>
+            설날·추석·부처님오신날·대체공휴일은 아래 버튼으로 연도별 등록하세요.
+          </div>
+          <div class="bulk-row">
+            <select id="bulkYear"></select>
+            <button class="btn btn-green btn-sm" id="bulkAddBtn">일괄 등록</button>
+          </div>
+        </div>
         <div id="holidayList"></div>
         <div class="holiday-add">
           <input type="date" id="newHolidayDate">
@@ -723,6 +750,7 @@
 
     async function loadSettingsPanel() {
       initHourSelects();
+      initBulkYear();
       try {
         const snap = await getDoc(doc(db, 'settings', 'operatingHours'));
         if (snap.exists()) settingsData = { holidays: {}, ...snap.data() };
@@ -759,19 +787,100 @@
         row.innerHTML = `
           <span class="h-date">${date}</span>
           <span class="h-name">${name}</span>
-          <button class="btn btn-red btn-sm">삭제</button>`;
-        row.querySelector('button').onclick = async () => {
-          showLoading(true);
-          try {
-            delete settingsData.holidays[date];
-            await setDoc(doc(db, 'settings', 'operatingHours'), settingsData);
-            renderHolidays();
-          } catch (err) { showAlert('삭제 실패: ' + err.message); }
-          finally { showLoading(false); }
+          <button class="btn btn-dark btn-sm h-edit">수정</button>
+          <button class="btn btn-red btn-sm h-del">삭제</button>`;
+
+        row.querySelector('.h-edit').onclick = () => {
+          row.className = 'holiday-edit';
+          row.innerHTML = `
+            <input type="date" class="e-date" value="${date}">
+            <input type="text" class="e-name" value="${name}">
+            <div class="edit-btns">
+              <button class="btn btn-green btn-sm e-save">저장</button>
+              <button class="btn btn-secondary btn-sm e-cancel">취소</button>
+            </div>`;
+          row.querySelector('.e-cancel').onclick = renderHolidays;
+          row.querySelector('.e-save').onclick = async () => {
+            const nd = row.querySelector('.e-date').value;
+            const nn = row.querySelector('.e-name').value.trim();
+            if (!nd) return showAlert('날짜를 선택해주세요.');
+            if (!nn) return showAlert('이름을 입력해주세요.');
+            showLoading(true);
+            try {
+              delete settingsData.holidays[date];   // 날짜가 바뀌면 기존 항목 제거
+              settingsData.holidays[nd] = nn;
+              await setDoc(doc(db, 'settings', 'operatingHours'), settingsData);
+              renderHolidays();
+            } catch (err) { showAlert('저장 실패: ' + err.message); renderHolidays(); }
+            finally { showLoading(false); }
+          };
+        };
+
+        row.querySelector('.h-del').onclick = () => {
+          showConfirm(`"${name}"(${date})을 삭제할까요?`, async () => {
+            showLoading(true);
+            try {
+              delete settingsData.holidays[date];
+              await setDoc(doc(db, 'settings', 'operatingHours'), settingsData);
+              renderHolidays();
+            } catch (err) { showAlert('삭제 실패: ' + err.message); }
+            finally { showLoading(false); }
+          });
         };
         container.appendChild(row);
       });
     }
+
+    // ── 연도별 공휴일 일괄 등록 ──────────────────────────
+    // 날짜 고정 국경일(신정·삼일절·어린이날·현충일·광복절·개천절·한글날·성탄절)은
+    // 사용자 앱이 자동 계산하므로 여기 넣지 않는다.
+    // 아래는 음력 기준 공휴일과 대체공휴일만 담는다.
+    const YEAR_HOLIDAYS = {
+      2026: {
+        '2026-02-16':'설날 연휴', '2026-02-17':'설날', '2026-02-18':'설날 연휴',
+        '2026-05-24':'부처님오신날', '2026-05-25':'대체공휴일',
+        '2026-09-24':'추석 연휴', '2026-09-25':'추석', '2026-09-26':'추석 연휴'
+      },
+      2027: {
+        '2027-02-06':'설날 연휴', '2027-02-07':'설날', '2027-02-08':'설날 연휴',
+        '2027-02-09':'대체공휴일',
+        '2027-05-13':'부처님오신날',
+        '2027-06-07':'대체공휴일(현충일)',
+        '2027-08-16':'대체공휴일(광복절)',
+        '2027-09-14':'추석 연휴', '2027-09-15':'추석', '2027-09-16':'추석 연휴',
+        '2027-10-04':'대체공휴일(개천절)',
+        '2027-10-11':'대체공휴일(한글날)',
+        '2027-12-27':'대체공휴일(성탄절)'
+      }
+    };
+
+    function initBulkYear(){
+      const sel = $('bulkYear'); sel.innerHTML = '';
+      Object.keys(YEAR_HOLIDAYS).sort().forEach(y=>
+        sel.add(new Option(y + '년 공휴일', y)));
+      const now = String(new Date().getFullYear());
+      if ([...sel.options].some(o=>o.value===now)) sel.value = now;
+    }
+
+    $('bulkAddBtn').onclick = () => {
+      const year = $('bulkYear').value;
+      const data = YEAR_HOLIDAYS[year];
+      if (!data) return showAlert('해당 연도 데이터가 없습니다.');
+      const cnt = Object.keys(data).length;
+      showConfirm(
+        `${year}년 공휴일 ${cnt}건을 등록할까요?\n\n같은 날짜가 이미 있으면 덮어씁니다.\n등록 후 목록에서 개별 수정·삭제할 수 있습니다.`,
+        async () => {
+          showLoading(true);
+          try {
+            if (!settingsData.holidays) settingsData.holidays = {};
+            Object.assign(settingsData.holidays, data);
+            await setDoc(doc(db, 'settings', 'operatingHours'), settingsData);
+            renderHolidays();
+            showAlert(`${year}년 공휴일 ${cnt}건이 등록되었습니다.\n\n대체공휴일은 정부 발표에 따라\n달라질 수 있으니 확인해주세요.`);
+          } catch (err) { showAlert('등록 실패: ' + err.message); }
+          finally { showLoading(false); }
+        });
+    };
 
     $('addHolidayBtn').onclick = async () => {
       const date = $('newHolidayDate').value;
@@ -815,16 +924,46 @@
         row.innerHTML = `
           <span class="h-date">${ev.date}</span>
           <span class="h-name">${ev.name}</span>
-          <button class="btn btn-red btn-sm">삭제</button>`;
-        row.querySelector('button').onclick = async () => {
-          showLoading(true);
-          try {
-            await deleteDoc(doc(db, 'events', ev.id));
-            await loadEvents();
-            await loadAdmEvents();
-            if ($('admCalBody').innerHTML) renderAdmCalendar();
-          } catch (err) { showAlert('삭제 실패: ' + err.message); }
-          finally { showLoading(false); }
+          <button class="btn btn-dark btn-sm v-edit">수정</button>
+          <button class="btn btn-red btn-sm v-del">삭제</button>`;
+
+        row.querySelector('.v-edit').onclick = () => {
+          row.className = 'holiday-edit';
+          row.innerHTML = `
+            <input type="date" class="e-date" value="${ev.date}">
+            <input type="text" class="e-name" value="${ev.name}">
+            <div class="edit-btns">
+              <button class="btn btn-green btn-sm e-save">저장</button>
+              <button class="btn btn-secondary btn-sm e-cancel">취소</button>
+            </div>`;
+          row.querySelector('.e-cancel').onclick = renderEvents;
+          row.querySelector('.e-save').onclick = async () => {
+            const nd = row.querySelector('.e-date').value;
+            const nn = row.querySelector('.e-name').value.trim();
+            if (!nd) return showAlert('날짜를 선택해주세요.');
+            if (!nn) return showAlert('행사 이름을 입력해주세요.');
+            showLoading(true);
+            try {
+              await updateDoc(doc(db, 'events', ev.id), { date: nd, name: nn });
+              await loadEvents();
+              await loadAdmEvents();
+              if ($('admCalBody').innerHTML) renderAdmCalendar();
+            } catch (err) { showAlert('저장 실패: ' + err.message); renderEvents(); }
+            finally { showLoading(false); }
+          };
+        };
+
+        row.querySelector('.v-del').onclick = () => {
+          showConfirm(`"${ev.name}"(${ev.date})을 삭제할까요?`, async () => {
+            showLoading(true);
+            try {
+              await deleteDoc(doc(db, 'events', ev.id));
+              await loadEvents();
+              await loadAdmEvents();
+              if ($('admCalBody').innerHTML) renderAdmCalendar();
+            } catch (err) { showAlert('삭제 실패: ' + err.message); }
+            finally { showLoading(false); }
+          });
         };
         container.appendChild(row);
       });
